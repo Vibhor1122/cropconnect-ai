@@ -5,7 +5,7 @@ import {
   Recycle,
   Route as RouteIcon,
   ShoppingBasket,
-  Sparkles,
+  
   Truck,
   Wind,
 } from "lucide-react";
@@ -80,9 +80,6 @@ function Index() {
         <section className="hero-wash">
           <div className="mx-auto grid max-w-6xl items-center gap-12 px-4 py-16 sm:px-6 lg:grid-cols-2 lg:py-24">
             <div className="animate-rise">
-              <span className="inline-flex items-center gap-2 rounded-full border border-primary/25 bg-card px-3 py-1 text-xs font-medium text-primary">
-                <Sparkles className="h-3.5 w-3.5" /> AI-powered agricultural marketplace
-              </span>
               <h1 className="mt-5 text-4xl leading-[1.05] font-semibold sm:text-5xl lg:text-6xl">
                 From Farm to Market. <span className="text-gradient">Smarter.</span>
               </h1>
