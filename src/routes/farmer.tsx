@@ -47,10 +47,66 @@ function FarmerPage() {
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
+const [aiError, setAiError] = useState<string | null>(null);
 
   const set = (k: keyof typeof empty) => (e: { target: { value: string } }) =>
     setForm((f) => ({ ...f, [k]: e.target.value }));
+  
+async function fillWithAI() {
+  if (!natural.trim()) {
+    setAiError("Please describe your harvest first.");
+    return;
+  }
 
+  setAiLoading(true);
+  setAiError(null);
+
+  try {
+    const response = await fetch(
+      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/parse-farmer-input`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+        },
+        body: JSON.stringify({
+          text: natural,
+        }),
+      }
+    );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || "AI could not understand the description.");
+    }
+
+    setForm((current) => ({
+      ...current,
+      crop: data.crop || "",
+      quantity:
+        data.quantity_kg !== null && data.quantity_kg !== undefined
+          ? String(data.quantity_kg)
+          : "",
+      price:
+        data.price_per_kg !== null && data.price_per_kg !== undefined
+          ? String(data.price_per_kg)
+          : "",
+      location: data.location || "",
+      date: data.harvest_date || "",
+      description: data.description || "",
+    }));
+  } catch (error) {
+    console.error(error);
+    setAiError(
+      "Couldn't process the description. Please try again or fill the fields manually."
+    );
+  } finally {
+    setAiLoading(false);
+  }
+}
   function validate() {
     const next: Record<string, string> = {};
     if (!form.name.trim()) next.name = "Please enter the farmer name.";
@@ -165,8 +221,36 @@ function FarmerPage() {
                   onChange={(e) => setNatural(e.target.value)}
                   placeholder="Example: I have around 800 kg of tomatoes harvested yesterday in Sonipat and I'm looking for at least ₹18 per kg."
                 />
-                <p className="mt-3 text-xs text-muted-foreground">
-                  Coming soon — for now please fill in the fields above.
+               <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
+  <Button
+    type="button"
+    onClick={fillWithAI}
+    disabled={aiLoading || !natural.trim()}
+    className="rounded-full px-6"
+  >
+    {aiLoading ? (
+      <>
+        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+        Understanding...
+      </>
+    ) : (
+      <>
+        <Sparkles className="mr-2 h-4 w-4" />
+        Fill with AI
+      </>
+    )}
+  </Button>
+
+  <p className="text-xs text-muted-foreground">
+    Supports English, Hindi and Hinglish.
+  </p>
+</div>
+
+{aiError && (
+  <p className="mt-3 text-sm text-destructive">
+    {aiError}
+  </p>
+)}
                 </p>
               </div>
 
