@@ -68,7 +68,7 @@ function parseNatural(text: string, base: typeof empty) {
   const loc = text.match(/\b(?:in|near|at)\s+([A-Z][A-Za-z]+)/)?.[1];
   return {
     ...base,
-    crop: base.crop || (crop ? crop[0].toUpperCase() + crop.slice(1) + "es".slice(0, 0) : ""),
+    crop: base.crop || (crop ? crop.charAt(0).toUpperCase() + crop.slice(1) : ""),
     quantity: base.quantity || qty || "",
     price: base.price || price || "",
     location: base.location || loc || "",
