@@ -80,7 +80,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { title: "CropConnect AI" },
       {
         name: "description",
-        content: "AI-powered marketplace connecting farmers directly with crop buyers.",
+        content: "Sustainable marketplace connecting farmers directly with crop buyers.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
