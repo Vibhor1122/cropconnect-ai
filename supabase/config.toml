@@ -1,1 +1,4 @@
 project_id = "tfhbkbpaayzzkknjfjkb"
+
+[functions.parse-farmer-input]
+verify_jwt = false
