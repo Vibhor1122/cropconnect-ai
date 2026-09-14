@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { MapPin, Search, Sparkles } from "lucide-react";
+import { Loader2, MapPin, Search, Sparkles } from "lucide-react";
 import { useState } from "react";
 
 import { SiteFooter, SiteHeader } from "@/components/site-chrome";
@@ -7,79 +7,62 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { formatDate, scoreListings, searchListings, type ScoredListing } from "@/lib/listings";
 
 export const Route = createFileRoute("/buyer")({
   head: () => ({
     meta: [
-      { title: "Find the Right Produce — CropConnect AI" },
+      { title: "Find the Right Produce — CropConnect" },
       {
         name: "description",
         content:
-          "Tell CropConnect what produce you need and get ranked farmer matches by price, quantity and distance.",
+          "Tell CropConnect what produce you need and get farmer listings ranked by price and available quantity.",
       },
-      { property: "og:title", content: "Find the Right Produce — CropConnect AI" },
+      { property: "og:title", content: "Find the Right Produce — CropConnect" },
       {
         property: "og:description",
-        content: "Source directly from farmers with AI-ranked matches.",
+        content: "Source directly from farmers with ranked crop listings.",
       },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
   component: BuyerPage,
 });
 
-const matches = [
-  {
-    name: "Rajesh Kumar",
-    crop: "Wheat",
-    qty: "1200 kg available",
-    price: "₹26/kg",
-    place: "Sonipat, Haryana",
-    score: 92,
-    notes: "Excellent price • Sufficient quantity • Close to buyer",
-  },
-  {
-    name: "Amit Singh",
-    crop: "Wheat",
-    qty: "1500 kg available",
-    price: "₹27/kg",
-    place: "Panipat, Haryana",
-    score: 87,
-    notes: "Large volume • Fair price • Moderate distance",
-  },
-  {
-    name: "Suresh Yadav",
-    crop: "Wheat",
-    qty: "900 kg available",
-    price: "₹25/kg",
-    place: "Rohtak, Haryana",
-    score: 81,
-    notes: "Lowest price • Slightly short on quantity • Further away",
-  },
-];
-
 function BuyerPage() {
   const [form, setForm] = useState({ crop: "", qty: "", price: "", location: "" });
   const [natural, setNatural] = useState("");
   const [loading, setLoading] = useState(false);
-  const [shown, setShown] = useState(false);
+  const [searched, setSearched] = useState(false);
+  const [results, setResults] = useState<ScoredListing[]>([]);
+  const [error, setError] = useState<string | null>(null);
 
   const set = (k: keyof typeof form) => (e: { target: { value: string } }) =>
     setForm((f) => ({ ...f, [k]: e.target.value }));
 
-  function search() {
+  async function search() {
     setLoading(true);
-    setTimeout(() => {
+    setError(null);
+    try {
+      const rows = await searchListings(form.crop);
+      setResults(scoreListings(rows, Number(form.qty) || 0, Number(form.price) || 0));
+      setSearched(true);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Search failed.");
+    } finally {
       setLoading(false);
-      setShown(true);
-    }, 800);
+    }
   }
 
   return (
     <div className="min-h-screen bg-background">
       <SiteHeader />
       <main className="hero-wash">
-        <div className="mx-auto max-w-5xl px-4 py-14 sm:px-6 lg:py-20">
-          <h1 className="text-3xl font-semibold sm:text-4xl lg:text-5xl">Find the Right Produce</h1>
+        <div className="mx-auto w-full max-w-5xl px-4 py-14 sm:px-6 lg:py-20">
+          <h1 className="text-3xl font-semibold break-words sm:text-4xl lg:text-5xl">
+            Find the Right Produce
+          </h1>
           <p className="mt-4 max-w-2xl text-muted-foreground">
             Tell us what you need and CropConnect will find the best available farmers.
           </p>
@@ -121,7 +104,16 @@ function BuyerPage() {
                 onChange={(e) => setNatural(e.target.value)}
                 placeholder="Example: I need 1000 kg of wheat near Delhi under ₹28/kg."
               />
+              <p className="mt-3 text-xs text-muted-foreground">
+                Coming soon — for now please use the fields above.
+              </p>
             </div>
+
+            {error && (
+              <p className="mt-6 rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
+                {error}
+              </p>
+            )}
 
             <Button
               size="lg"
@@ -129,54 +121,66 @@ function BuyerPage() {
               onClick={search}
               disabled={loading}
             >
-              <Search className="h-4 w-4" />
+              {loading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Search className="h-4 w-4" />
+              )}
               {loading ? "Searching produce…" : "Find Smart Matches"}
             </Button>
           </div>
 
-          {shown && (
+          {searched && !loading && (
             <section className="mt-12">
               <div className="flex flex-wrap items-baseline justify-between gap-2">
-                <h2 className="text-2xl font-semibold">3 farmer matches</h2>
-                <p className="text-sm text-muted-foreground">Ranked by price, volume and distance</p>
+                <h2 className="text-2xl font-semibold">
+                  {results.length} {results.length === 1 ? "farmer match" : "farmer matches"}
+                </h2>
+                <p className="text-sm text-muted-foreground">
+                  Ranked by Match Score (price and quantity fit)
+                </p>
               </div>
-              <div className="mt-6 space-y-4">
-                {matches.map((m, i) => (
-                  <article
-                    key={m.name}
-                    className="card-soft animate-rise grid gap-5 p-6 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
-                    style={{ animationDelay: `${i * 90}ms` }}
-                  >
-                    <div className="min-w-0">
-                      <h3 className="truncate text-lg font-semibold">{m.name}</h3>
-                      <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
-                        <span className="font-medium text-foreground">{m.crop}</span>
-                        <span>{m.qty}</span>
-                        <span className="font-medium text-primary">{m.price}</span>
-                        <span className="inline-flex items-center gap-1">
-                          <MapPin className="h-3.5 w-3.5" />
-                          {m.place}
-                        </span>
-                      </p>
-                      <p className="mt-3 text-xs text-muted-foreground">{m.notes}</p>
-                    </div>
-                    <div className="flex shrink-0 items-center gap-4 sm:flex-col sm:items-end">
-                      <div className="text-right">
-                        <p className="font-display text-3xl font-semibold text-primary">
-                          {m.score}%
+
+              {results.length === 0 ? (
+                <p className="mt-6 rounded-[1.75rem] border border-dashed border-border bg-card/60 p-8 text-sm text-muted-foreground">
+                  No available listings match that crop yet. Try a different crop name.
+                </p>
+              ) : (
+                <div className="mt-6 space-y-4">
+                  {results.map((m, i) => (
+                    <article
+                      key={m.id}
+                      className="card-soft animate-rise grid gap-5 p-6 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
+                      style={{ animationDelay: `${Math.min(i, 8) * 90}ms` }}
+                    >
+                      <div className="min-w-0">
+                        <h3 className="truncate text-lg font-semibold">{m.farmer_name}</h3>
+                        <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
+                          <span className="font-medium text-foreground">{m.crop}</span>
+                          <span>{m.quantity_kg} kg available</span>
+                          <span className="font-medium text-primary">₹{m.price_per_kg}/kg</span>
+                          <span className="inline-flex items-center gap-1">
+                            <MapPin className="h-3.5 w-3.5" />
+                            {m.location}
+                          </span>
                         </p>
-                        <p className="text-xs text-muted-foreground">Match</p>
+                        <p className="mt-3 text-xs text-muted-foreground">
+                          {m.notes.length ? m.notes.join(" • ") : "Available now"} • Harvested{" "}
+                          {formatDate(m.harvest_date)}
+                        </p>
                       </div>
-                      <Button variant="outline" className="rounded-full border-primary/30 text-primary hover:bg-primary/5">
-                        Contact farmer
-                      </Button>
-                    </div>
-                  </article>
-                ))}
-              </div>
-              <p className="mt-6 text-xs text-muted-foreground">
-                Demonstration matches based on simulated marketplace activity.
-              </p>
+                      <div className="flex shrink-0 items-center gap-4 sm:flex-col sm:items-end">
+                        <div className="text-right">
+                          <p className="font-display text-3xl font-semibold text-primary">
+                            {m.score}%
+                          </p>
+                          <p className="text-xs text-muted-foreground">Match Score</p>
+                        </div>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              )}
             </section>
           )}
         </div>
