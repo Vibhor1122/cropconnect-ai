@@ -84,8 +84,9 @@ function Index() {
                 From Farm to Market. <span className="text-gradient">Smarter.</span>
               </h1>
               <p className="mt-5 max-w-xl text-base text-muted-foreground sm:text-lg">
-                An AI-powered marketplace connecting farmers directly with buyers — reducing waste,
-                shortening supply chains, and creating a more sustainable food system.
+                Connecting farmers directly with buyers — reducing waste,
+                shortening supply chains, and creating a more sustainable food
+                system.
               </p>
               <div className="mt-8 flex flex-col gap-3 sm:flex-row">
                 <Button asChild size="lg" className="rounded-full px-7">
