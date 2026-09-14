@@ -21,13 +21,13 @@ export const Route = createFileRoute("/")({
       {
         name: "description",
         content:
-          "An AI-powered marketplace connecting farmers directly with buyers — reducing waste, shortening supply chains, and building a sustainable food system.",
+          "The sustainable marketplace connecting farmers directly with buyers — fresher produce, fairer prices, and less waste from farm to market.",
       },
       { property: "og:title", content: "CropConnect AI — From Farm to Market. Smarter." },
       {
         property: "og:description",
         content:
-          "AI-powered marketplace connecting farmers directly with crop buyers and wholesalers.",
+          "Sustainable marketplace connecting farmers directly with crop buyers and wholesalers.",
       },
     ],
   }),
@@ -84,9 +84,9 @@ function Index() {
                 From Farm to Market. <span className="text-gradient">Smarter.</span>
               </h1>
               <p className="mt-5 max-w-xl text-base text-muted-foreground sm:text-lg">
-                Connecting farmers directly with buyers — reducing waste,
-                shortening supply chains, and creating a more sustainable food
-                system.
+                The sustainable marketplace that links farmers directly with
+                buyers — fresher produce, fairer prices, and far less waste
+                along the way.
               </p>
               <div className="mt-8 flex flex-col gap-3 sm:flex-row">
                 <Button asChild size="lg" className="rounded-full px-7">
