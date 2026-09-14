@@ -1,5 +1,5 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { CheckCircle2, Sparkles, Wand2 } from "lucide-react";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { CheckCircle2, Loader2, Sparkles, Wand2 } from "lucide-react";
 import { useState } from "react";
 
 import { SiteFooter, SiteHeader } from "@/components/site-chrome";
@@ -7,37 +7,28 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { createListing, formatDate, type CropListing } from "@/lib/listings";
 
 export const Route = createFileRoute("/farmer")({
   head: () => ({
     meta: [
-      { title: "Sell Your Harvest Smarter — CropConnect AI" },
+      { title: "Sell Your Harvest Smarter — CropConnect" },
       {
         name: "description",
         content:
-          "Tell CropConnect what you've harvested and we'll structure your crop listing and match you with interested buyers.",
+          "Tell CropConnect what you've harvested, list it in seconds and reach buyers sourcing directly from farms.",
       },
-      { property: "og:title", content: "Sell Your Harvest Smarter — CropConnect AI" },
+      { property: "og:title", content: "Sell Your Harvest Smarter — CropConnect" },
       {
         property: "og:description",
-        content: "Create an AI-structured crop listing and reach buyers directly.",
+        content: "Create a crop listing and reach buyers directly.",
       },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
   component: FarmerPage,
 });
-
-type Listing = {
-  name: string;
-  crop: string;
-  quantity: string;
-  price: string;
-  location: string;
-  date: string;
-  description: string;
-  quality: string;
-  window: string;
-};
 
 const empty = {
   name: "",
@@ -49,69 +40,66 @@ const empty = {
   description: "",
 };
 
-function parseNatural(text: string, base: typeof empty) {
-  const qty = text.match(/(\d[\d,]*)\s*kg/i)?.[1]?.replace(/,/g, "");
-  const price = text.match(/(?:₹|rs\.?\s*)(\d+(?:\.\d+)?)/i)?.[1];
-  const crops = [
-    "tomato",
-    "wheat",
-    "rice",
-    "potato",
-    "onion",
-    "maize",
-    "mustard",
-    "sugarcane",
-    "banana",
-    "mango",
-  ];
-  const crop = crops.find((c) => text.toLowerCase().includes(c));
-  const loc = text.match(/\b(?:in|near|at)\s+([A-Z][A-Za-z]+)/)?.[1];
-  return {
-    ...base,
-    crop: base.crop || (crop ? crop.charAt(0).toUpperCase() + crop.slice(1) : ""),
-    quantity: base.quantity || qty || "",
-    price: base.price || price || "",
-    location: base.location || loc || "",
-    description: base.description || text.trim(),
-  };
-}
-
 function FarmerPage() {
   const [form, setForm] = useState(empty);
   const [natural, setNatural] = useState("");
-  const [listing, setListing] = useState<Listing | null>(null);
+  const [listing, setListing] = useState<CropListing | null>(null);
   const [loading, setLoading] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const set = (k: keyof typeof empty) => (e: { target: { value: string } }) =>
     setForm((f) => ({ ...f, [k]: e.target.value }));
 
-  function generate() {
+  function validate() {
+    const next: Record<string, string> = {};
+    if (!form.name.trim()) next.name = "Please enter the farmer name.";
+    if (!form.crop.trim()) next.crop = "Please enter the crop.";
+    if (!form.quantity.trim() || Number(form.quantity) <= 0)
+      next.quantity = "Enter a quantity greater than 0.";
+    if (!form.price.trim() || Number(form.price) <= 0)
+      next.price = "Enter a price greater than 0.";
+    if (!form.location.trim()) next.location = "Please enter the location.";
+    setErrors(next);
+    return Object.keys(next).length === 0;
+  }
+
+  async function submit() {
+    setSaveError(null);
+    if (!validate()) return;
     setLoading(true);
-    const merged = natural.trim() ? parseNatural(natural, form) : form;
-    setTimeout(() => {
-      setListing({
-        name: merged.name || "Unnamed Farmer",
-        crop: merged.crop || "Mixed Produce",
-        quantity: merged.quantity || "—",
-        price: merged.price || "—",
-        location: merged.location || "Location not specified",
-        date: merged.date || "Recently harvested",
-        description:
-          merged.description ||
-          "Freshly harvested produce available for direct purchase from the farm.",
-        quality: "Grade A · Farm-fresh · Direct from grower",
-        window: "Best sold within 5–7 days of harvest",
+    try {
+      const saved = await createListing({
+        farmer_name: form.name.trim(),
+        crop: form.crop.trim(),
+        quantity_kg: Number(form.quantity),
+        price_per_kg: Number(form.price),
+        location: form.location.trim(),
+        harvest_date: form.date || null,
+        description: form.description.trim() || null,
       });
+      setListing(saved);
+    } catch (e) {
+      setSaveError(e instanceof Error ? e.message : "Something went wrong while saving.");
+    } finally {
       setLoading(false);
-    }, 700);
+    }
+  }
+
+  function reset() {
+    setForm(empty);
+    setNatural("");
+    setListing(null);
+    setErrors({});
+    setSaveError(null);
   }
 
   return (
     <div className="min-h-screen bg-background">
       <SiteHeader />
       <main className="hero-wash">
-        <div className="mx-auto max-w-5xl px-4 py-14 sm:px-6 lg:py-20">
-          <h1 className="text-3xl font-semibold sm:text-4xl lg:text-5xl">
+        <div className="mx-auto w-full max-w-5xl px-4 py-14 sm:px-6 lg:py-20">
+          <h1 className="text-3xl font-semibold break-words sm:text-4xl lg:text-5xl">
             Sell Your Harvest Smarter
           </h1>
           <p className="mt-4 max-w-2xl text-muted-foreground">
@@ -119,16 +107,16 @@ function FarmerPage() {
           </p>
 
           <div className="mt-10 grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
-            <div className="rounded-[1.75rem] border border-border bg-card p-6 sm:p-8">
+            <div className="min-w-0 rounded-[1.75rem] border border-border bg-card p-6 sm:p-8">
               <h2 className="text-lg font-semibold">Harvest details</h2>
               <div className="mt-6 grid gap-5 sm:grid-cols-2">
-                <Field label="Farmer Name">
+                <Field label="Farmer Name" error={errors.name}>
                   <Input value={form.name} onChange={set("name")} placeholder="Rajesh Kumar" />
                 </Field>
-                <Field label="Crop">
+                <Field label="Crop" error={errors.crop}>
                   <Input value={form.crop} onChange={set("crop")} placeholder="Tomatoes" />
                 </Field>
-                <Field label="Quantity (kg)">
+                <Field label="Quantity (kg)" error={errors.quantity}>
                   <Input
                     inputMode="numeric"
                     value={form.quantity}
@@ -136,7 +124,7 @@ function FarmerPage() {
                     placeholder="800"
                   />
                 </Field>
-                <Field label="Expected Price per kg (₹)">
+                <Field label="Expected Price per kg (₹)" error={errors.price}>
                   <Input
                     inputMode="numeric"
                     value={form.price}
@@ -144,7 +132,7 @@ function FarmerPage() {
                     placeholder="18"
                   />
                 </Field>
-                <Field label="Location">
+                <Field label="Location" error={errors.location}>
                   <Input
                     value={form.location}
                     onChange={set("location")}
@@ -177,46 +165,65 @@ function FarmerPage() {
                   onChange={(e) => setNatural(e.target.value)}
                   placeholder="Example: I have around 800 kg of tomatoes harvested yesterday in Sonipat and I'm looking for at least ₹18 per kg."
                 />
+                <p className="mt-3 text-xs text-muted-foreground">
+                  Coming soon — for now please fill in the fields above.
+                </p>
               </div>
+
+              {saveError && (
+                <p className="mt-6 rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
+                  {saveError}
+                </p>
+              )}
 
               <Button
                 size="lg"
                 className="mt-6 w-full rounded-full sm:w-auto sm:px-8"
-                onClick={generate}
+                onClick={submit}
                 disabled={loading}
               >
-                <Wand2 className="h-4 w-4" />
-                {loading ? "Structuring listing…" : "Create Listing with AI"}
+                {loading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Wand2 className="h-4 w-4" />
+                )}
+                {loading ? "Saving listing…" : "Create Listing"}
               </Button>
             </div>
 
-            <aside className="lg:sticky lg:top-24 lg:self-start">
+            <aside className="min-w-0 lg:sticky lg:top-24 lg:self-start">
               {listing ? (
                 <div className="animate-rise rounded-[1.75rem] border border-primary/25 bg-card p-6 shadow-[var(--shadow-card)] sm:p-8">
                   <span className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
-                    <CheckCircle2 className="h-3.5 w-3.5" /> Listing ready
+                    <CheckCircle2 className="h-3.5 w-3.5" /> Harvest listed successfully!
                   </span>
-                  <h2 className="mt-4 text-2xl font-semibold">{listing.crop}</h2>
+                  <h2 className="mt-4 text-2xl font-semibold break-words">{listing.crop}</h2>
                   <p className="text-sm text-muted-foreground">
-                    {listing.name} · {listing.location}
+                    {listing.farmer_name} · {listing.location}
                   </p>
                   <dl className="mt-6 grid grid-cols-2 gap-4 text-sm">
-                    <Stat label="Quantity" value={`${listing.quantity} kg`} />
-                    <Stat label="Asking price" value={`₹${listing.price}/kg`} />
-                    <Stat label="Harvested" value={listing.date} />
-                    <Stat label="Quality" value={listing.quality} />
+                    <Stat label="Quantity" value={`${listing.quantity_kg} kg`} />
+                    <Stat label="Asking price" value={`₹${listing.price_per_kg}/kg`} />
+                    <Stat label="Harvested" value={formatDate(listing.harvest_date)} />
+                    <Stat label="Status" value="Available" />
                   </dl>
-                  <p className="mt-6 rounded-xl bg-muted p-4 text-sm text-muted-foreground">
-                    {listing.description}
-                  </p>
-                  <p className="mt-4 text-xs text-muted-foreground">{listing.window}</p>
-                  <p className="mt-6 text-sm font-medium text-primary">
-                    Estimated 4 buyers actively sourcing this crop nearby.
-                  </p>
+                  {listing.description && (
+                    <p className="mt-6 rounded-xl bg-muted p-4 text-sm text-muted-foreground">
+                      {listing.description}
+                    </p>
+                  )}
+                  <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+                    <Button className="rounded-full" onClick={reset}>
+                      List Another Crop
+                    </Button>
+                    <Button asChild variant="outline" className="rounded-full">
+                      <Link to="/marketplace">View in marketplace</Link>
+                    </Button>
+                  </div>
                 </div>
               ) : (
                 <div className="rounded-[1.75rem] border border-dashed border-border bg-card/60 p-8 text-sm text-muted-foreground">
-                  Your structured listing preview will appear here once you create it.
+                  Your listing summary will appear here once you create it.
                 </div>
               )}
             </aside>
@@ -228,11 +235,20 @@ function FarmerPage() {
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({
+  label,
+  error,
+  children,
+}: {
+  label: string;
+  error?: string;
+  children: React.ReactNode;
+}) {
   return (
     <div className="min-w-0 space-y-2">
       <Label className="text-sm">{label}</Label>
       {children}
+      {error && <p className="text-xs text-destructive">{error}</p>}
     </div>
   );
 }
@@ -241,7 +257,7 @@ function Stat({ label, value }: { label: string; value: string }) {
   return (
     <div className="min-w-0">
       <dt className="text-xs text-muted-foreground">{label}</dt>
-      <dd className="mt-1 font-medium">{value}</dd>
+      <dd className="mt-1 font-medium break-words">{value}</dd>
     </div>
   );
 }
