@@ -37,9 +37,53 @@ function BuyerPage() {
   const [searched, setSearched] = useState(false);
   const [results, setResults] = useState<ScoredListing[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
+  const [aiNote, setAiNote] = useState<string | null>(null);
 
   const set = (k: keyof typeof form) => (e: { target: { value: string } }) =>
     setForm((f) => ({ ...f, [k]: e.target.value }));
+
+  async function parseWithAI() {
+    if (!natural.trim()) {
+      setAiError("Please describe what you need first.");
+      return;
+    }
+    setAiLoading(true);
+    setAiError(null);
+    setAiNote(null);
+    try {
+      const response = await fetch("/api/parse-buyer-input", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: natural }),
+      });
+      const data = (await response.json()) as {
+        crop?: string;
+        quantity_kg?: number | null;
+        max_price_per_kg?: number | null;
+        location?: string;
+        error?: string;
+      };
+      if (!response.ok) {
+        setAiError(data.error ?? "AI could not understand your request.");
+        return;
+      }
+      setForm((f) => ({
+        crop: data.crop || f.crop,
+        qty: data.quantity_kg != null ? String(data.quantity_kg) : f.qty,
+        price:
+          data.max_price_per_kg != null ? String(data.max_price_per_kg) : f.price,
+        location: data.location || f.location,
+      }));
+      setAiNote("Understood your request and filled the fields above.");
+    } catch {
+      setAiError("Could not reach the AI service. Please try again.");
+    } finally {
+      setAiLoading(false);
+    }
+  }
+
 
   async function search() {
     setLoading(true);
