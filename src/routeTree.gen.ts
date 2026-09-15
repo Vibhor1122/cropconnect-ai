@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as BuyerRouteImport } from './routes/buyer'
 import { Route as FarmerRouteImport } from './routes/farmer'
 import { Route as MarketplaceRouteImport } from './routes/marketplace'
+import { Route as ApiParseBuyerInputRouteImport } from './routes/api/parse-buyer-input'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -34,18 +35,25 @@ const MarketplaceRoute = MarketplaceRouteImport.update({
   path: '/marketplace',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiParseBuyerInputRoute = ApiParseBuyerInputRouteImport.update({
+  id: '/api/parse-buyer-input',
+  path: '/api/parse-buyer-input',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/buyer': typeof BuyerRoute
   '/farmer': typeof FarmerRoute
   '/marketplace': typeof MarketplaceRoute
+  '/api/parse-buyer-input': typeof ApiParseBuyerInputRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/buyer': typeof BuyerRoute
   '/farmer': typeof FarmerRoute
   '/marketplace': typeof MarketplaceRoute
+  '/api/parse-buyer-input': typeof ApiParseBuyerInputRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -53,13 +61,21 @@ export interface FileRoutesById {
   '/buyer': typeof BuyerRoute
   '/farmer': typeof FarmerRoute
   '/marketplace': typeof MarketplaceRoute
+  '/api/parse-buyer-input': typeof ApiParseBuyerInputRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/buyer' | '/farmer' | '/marketplace'
+  fullPaths:
+    '/' | '/buyer' | '/farmer' | '/marketplace' | '/api/parse-buyer-input'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/buyer' | '/farmer' | '/marketplace'
-  id: '__root__' | '/' | '/buyer' | '/farmer' | '/marketplace'
+  to: '/' | '/buyer' | '/farmer' | '/marketplace' | '/api/parse-buyer-input'
+  id:
+    | '__root__'
+    | '/'
+    | '/buyer'
+    | '/farmer'
+    | '/marketplace'
+    | '/api/parse-buyer-input'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -67,6 +83,7 @@ export interface RootRouteChildren {
   BuyerRoute: typeof BuyerRoute
   FarmerRoute: typeof FarmerRoute
   MarketplaceRoute: typeof MarketplaceRoute
+  ApiParseBuyerInputRoute: typeof ApiParseBuyerInputRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -99,6 +116,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof MarketplaceRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/parse-buyer-input': {
+      id: '/api/parse-buyer-input'
+      path: '/api/parse-buyer-input'
+      fullPath: '/api/parse-buyer-input'
+      preLoaderRoute: typeof ApiParseBuyerInputRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -107,6 +131,7 @@ const rootRouteChildren: RootRouteChildren = {
   BuyerRoute: BuyerRoute,
   FarmerRoute: FarmerRoute,
   MarketplaceRoute: MarketplaceRoute,
+  ApiParseBuyerInputRoute: ApiParseBuyerInputRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

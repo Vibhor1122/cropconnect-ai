@@ -102,12 +102,36 @@ function BuyerPage() {
                 className="mt-3 bg-card"
                 value={natural}
                 onChange={(e) => setNatural(e.target.value)}
-                placeholder="Example: I need 1000 kg of wheat near Delhi under ₹28/kg."
+                placeholder="Example: Delhi ke paas 1 ton tomatoes chahiye under ₹22 per kg"
               />
-              <p className="mt-3 text-xs text-muted-foreground">
-                Coming soon — for now please use the fields above.
-              </p>
+              <div className="mt-3 flex flex-wrap items-center gap-3">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  className="rounded-full"
+                  onClick={parseWithAI}
+                  disabled={aiLoading}
+                >
+                  {aiLoading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Sparkles className="h-4 w-4" />
+                  )}
+                  {aiLoading ? "Reading your request…" : "Search with AI"}
+                </Button>
+                <p className="text-xs text-muted-foreground">
+                  AI only reads your request and fills the fields. Matching stays fully
+                  deterministic.
+                </p>
+              </div>
+              {aiError && (
+                <p className="mt-3 text-sm text-destructive">{aiError}</p>
+              )}
+              {aiNote && !aiError && (
+                <p className="mt-3 text-sm text-primary">{aiNote}</p>
+              )}
             </div>
+
 
             {error && (
               <p className="mt-6 rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
