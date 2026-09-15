@@ -37,9 +37,53 @@ function BuyerPage() {
   const [searched, setSearched] = useState(false);
   const [results, setResults] = useState<ScoredListing[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
+  const [aiNote, setAiNote] = useState<string | null>(null);
 
   const set = (k: keyof typeof form) => (e: { target: { value: string } }) =>
     setForm((f) => ({ ...f, [k]: e.target.value }));
+
+  async function parseWithAI() {
+    if (!natural.trim()) {
+      setAiError("Please describe what you need first.");
+      return;
+    }
+    setAiLoading(true);
+    setAiError(null);
+    setAiNote(null);
+    try {
+      const response = await fetch("/api/parse-buyer-input", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: natural }),
+      });
+      const data = (await response.json()) as {
+        crop?: string;
+        quantity_kg?: number | null;
+        max_price_per_kg?: number | null;
+        location?: string;
+        error?: string;
+      };
+      if (!response.ok) {
+        setAiError(data.error ?? "AI could not understand your request.");
+        return;
+      }
+      setForm((f) => ({
+        crop: data.crop || f.crop,
+        qty: data.quantity_kg != null ? String(data.quantity_kg) : f.qty,
+        price:
+          data.max_price_per_kg != null ? String(data.max_price_per_kg) : f.price,
+        location: data.location || f.location,
+      }));
+      setAiNote("Understood your request and filled the fields above.");
+    } catch {
+      setAiError("Could not reach the AI service. Please try again.");
+    } finally {
+      setAiLoading(false);
+    }
+  }
+
 
   async function search() {
     setLoading(true);
@@ -102,12 +146,36 @@ function BuyerPage() {
                 className="mt-3 bg-card"
                 value={natural}
                 onChange={(e) => setNatural(e.target.value)}
-                placeholder="Example: I need 1000 kg of wheat near Delhi under ₹28/kg."
+                placeholder="Example: Delhi ke paas 1 ton tomatoes chahiye under ₹22 per kg"
               />
-              <p className="mt-3 text-xs text-muted-foreground">
-                Coming soon — for now please use the fields above.
-              </p>
+              <div className="mt-3 flex flex-wrap items-center gap-3">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  className="rounded-full"
+                  onClick={parseWithAI}
+                  disabled={aiLoading}
+                >
+                  {aiLoading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Sparkles className="h-4 w-4" />
+                  )}
+                  {aiLoading ? "Reading your request…" : "Search with AI"}
+                </Button>
+                <p className="text-xs text-muted-foreground">
+                  AI only reads your request and fills the fields. Matching stays fully
+                  deterministic.
+                </p>
+              </div>
+              {aiError && (
+                <p className="mt-3 text-sm text-destructive">{aiError}</p>
+              )}
+              {aiNote && !aiError && (
+                <p className="mt-3 text-sm text-primary">{aiNote}</p>
+              )}
             </div>
+
 
             {error && (
               <p className="mt-6 rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
