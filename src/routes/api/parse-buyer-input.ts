@@ -65,42 +65,53 @@ export const Route = createFileRoute("/api/parse-buyer-input")({
             );
           }
 
-          const response = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${apiKey}`,
-            {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                contents: [{ parts: [{ text: PROMPT_HEADER + text }] }],
-                generationConfig: {
-                  responseMimeType: "application/json",
-                  responseSchema: {
-                    type: "OBJECT",
-                    properties: {
-                      crop: { type: "STRING" },
-                      quantity_kg: { type: "NUMBER", nullable: true },
-                      max_price_per_kg: { type: "NUMBER", nullable: true },
-                      location: { type: "STRING" },
+          const callGemini = () =>
+            fetch(
+              `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${apiKey}`,
+              {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  contents: [{ parts: [{ text: PROMPT_HEADER + text }] }],
+                  generationConfig: {
+                    responseMimeType: "application/json",
+                    responseSchema: {
+                      type: "OBJECT",
+                      properties: {
+                        crop: { type: "STRING" },
+                        quantity_kg: { type: "NUMBER", nullable: true },
+                        max_price_per_kg: { type: "NUMBER", nullable: true },
+                        location: { type: "STRING" },
+                      },
+                      required: [
+                        "crop",
+                        "quantity_kg",
+                        "max_price_per_kg",
+                        "location",
+                      ],
                     },
-                    required: [
-                      "crop",
-                      "quantity_kg",
-                      "max_price_per_kg",
-                      "location",
-                    ],
                   },
-                },
-              }),
-            },
-          );
+                }),
+              },
+            );
+
+          let response = await callGemini();
+          if (!response.ok && (response.status === 429 || response.status >= 500)) {
+            await new Promise((r) => setTimeout(r, 900));
+            response = await callGemini();
+          }
 
           if (!response.ok) {
             console.error("Gemini API error:", await response.text());
             return Response.json(
-              { error: "AI could not understand your request." },
-              { status: 500 },
+              {
+                error:
+                  "AI is busy right now. Please try again in a moment or use the fields above.",
+              },
+              { status: 503 },
             );
           }
+
 
           const result = (await response.json()) as {
             candidates?: { content?: { parts?: { text?: string }[] } }[];
