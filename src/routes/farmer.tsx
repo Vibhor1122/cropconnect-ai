@@ -109,13 +109,13 @@ async function fillWithAI() {
 }
   function validate() {
     const next: Record<string, string> = {};
-    if (!form.name.trim()) next.name = "Please enter the farmer name.";
-    if (!form.crop.trim()) next.crop = "Please enter the crop.";
+    if (!form.name.trim()) next['name'] = "Please enter the farmer name.";
+    if (!form.crop.trim()) next['crop'] = "Please enter the crop.";
     if (!form.quantity.trim() || Number(form.quantity) <= 0)
-      next.quantity = "Enter a quantity greater than 0.";
+      next['quantity'] = "Enter a quantity greater than 0.";
     if (!form.price.trim() || Number(form.price) <= 0)
-      next.price = "Enter a price greater than 0.";
-    if (!form.location.trim()) next.location = "Please enter the location.";
+      next['price'] = "Enter a price greater than 0.";
+    if (!form.location.trim()) next['location'] = "Please enter the location.";
     setErrors(next);
     return Object.keys(next).length === 0;
   }
@@ -166,13 +166,13 @@ async function fillWithAI() {
             <div className="min-w-0 rounded-[1.75rem] border border-border bg-card p-6 sm:p-8">
               <h2 className="text-lg font-semibold">Harvest details</h2>
               <div className="mt-6 grid gap-5 sm:grid-cols-2">
-                <Field label="Farmer Name" error={errors.name}>
+                <Field label="Farmer Name" error={errors['name']}>
                   <Input value={form.name} onChange={set("name")} placeholder="Rajesh Kumar" />
                 </Field>
-                <Field label="Crop" error={errors.crop}>
+                <Field label="Crop" error={errors['crop']}>
                   <Input value={form.crop} onChange={set("crop")} placeholder="Tomatoes" />
                 </Field>
-                <Field label="Quantity (kg)" error={errors.quantity}>
+                <Field label="Quantity (kg)" error={errors['quantity']}>
                   <Input
                     inputMode="numeric"
                     value={form.quantity}
@@ -180,7 +180,7 @@ async function fillWithAI() {
                     placeholder="800"
                   />
                 </Field>
-                <Field label="Expected Price per kg (₹)" error={errors.price}>
+                <Field label="Expected Price per kg (₹)" error={errors['price']}>
                   <Input
                     inputMode="numeric"
                     value={form.price}
@@ -188,7 +188,7 @@ async function fillWithAI() {
                     placeholder="18"
                   />
                 </Field>
-                <Field label="Location" error={errors.location}>
+                <Field label="Location" error={errors['location']}>
                   <Input
                     value={form.location}
                     onChange={set("location")}
@@ -324,7 +324,7 @@ function Field({
   children,
 }: {
   label: string;
-  error?: string;
+  error?: string | undefined;
   children: React.ReactNode;
 }) {
   return (
