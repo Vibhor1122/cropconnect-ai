@@ -251,7 +251,6 @@ async function fillWithAI() {
     {aiError}
   </p>
 )}
-                </p>
               </div>
 
               {saveError && (
