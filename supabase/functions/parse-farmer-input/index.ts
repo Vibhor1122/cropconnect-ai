@@ -24,7 +24,8 @@ Deno.serve(async (req) => {
       );
     }
 
-    const apiKey = Deno.env.get("GEMINI_API_KEY");
+    const apiKey =
+      Deno.env.get("GEMINI_API_KEY") || Deno.env.get("Crop_connect_key");
 
     if (!apiKey) {
       throw new Error("Gemini API key is not configured.");
