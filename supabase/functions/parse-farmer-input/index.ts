@@ -24,7 +24,8 @@ Deno.serve(async (req) => {
       );
     }
 
-    const apiKey = Deno.env.get("GEMINI_API_KEY");
+    const apiKey =
+      Deno.env.get("GEMINI_API_KEY") || Deno.env.get("Crop_connect_key");
 
     if (!apiKey) {
       throw new Error("Gemini API key is not configured.");
@@ -86,7 +87,7 @@ ${text}
 `;
 
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${apiKey}`,
       {
         method: "POST",
         headers: {
