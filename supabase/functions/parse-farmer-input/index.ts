@@ -3,6 +3,44 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+function pad(n: number) {
+  return String(n).padStart(2, "0");
+}
+
+function isValid(y: number, m: number, d: number) {
+  if (m < 1 || m > 12 || d < 1 || d > 31) return false;
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  return dt.getUTCFullYear() === y && dt.getUTCMonth() === m - 1 && dt.getUTCDate() === d;
+}
+
+// Accepts YYYY-MM-DD, DD/MM/YYYY, DD-MM-YYYY (day-first Indian format).
+function normalizeDate(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const raw = value.trim();
+  if (!raw) return null;
+
+  const iso = raw.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$/);
+  if (iso) {
+    const [, y, m, d] = iso;
+    return isValid(+y, +m, +d) ? `${y}-${pad(+m)}-${pad(+d)}` : null;
+  }
+
+  const dmy = raw.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})$/);
+  if (dmy) {
+    const [, d, m, y] = dmy;
+    return isValid(+y, +m, +d) ? `${y}-${pad(+m)}-${pad(+d)}` : null;
+  }
+
+  return null;
+}
+
+// Last-resort: pull an explicit date straight out of the farmer's message.
+function extractDate(text: string): string | null {
+  const match = text.match(/\b\d{1,2}[-/.]\d{1,2}[-/.]\d{4}\b|\b\d{4}[-/]\d{1,2}[-/]\d{1,2}\b/);
+  return match ? normalizeDate(match[0]) : null;
+}
+
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
