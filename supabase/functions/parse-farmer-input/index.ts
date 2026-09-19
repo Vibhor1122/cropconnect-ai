@@ -3,6 +3,44 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+function pad(n: number) {
+  return String(n).padStart(2, "0");
+}
+
+function isValid(y: number, m: number, d: number) {
+  if (m < 1 || m > 12 || d < 1 || d > 31) return false;
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  return dt.getUTCFullYear() === y && dt.getUTCMonth() === m - 1 && dt.getUTCDate() === d;
+}
+
+// Accepts YYYY-MM-DD, DD/MM/YYYY, DD-MM-YYYY (day-first Indian format).
+function normalizeDate(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const raw = value.trim();
+  if (!raw) return null;
+
+  const iso = raw.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$/);
+  if (iso) {
+    const [, y, m, d] = iso;
+    return isValid(+y, +m, +d) ? `${y}-${pad(+m)}-${pad(+d)}` : null;
+  }
+
+  const dmy = raw.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})$/);
+  if (dmy) {
+    const [, d, m, y] = dmy;
+    return isValid(+y, +m, +d) ? `${y}-${pad(+m)}-${pad(+d)}` : null;
+  }
+
+  return null;
+}
+
+// Last-resort: pull an explicit date straight out of the farmer's message.
+function extractDate(text: string): string | null {
+  const match = text.match(/\b\d{1,2}[-/.]\d{1,2}[-/.]\d{4}\b|\b\d{4}[-/]\d{1,2}[-/]\d{1,2}\b/);
+  return match ? normalizeDate(match[0]) : null;
+}
+
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -50,6 +88,12 @@ Convert relative dates:
 "today" / "aaj" = ${today}
 "yesterday" / "kal" when referring to past harvest = one day before today.
 
+Dates written as DD/MM/YYYY or DD-MM-YYYY are day-first Indian format.
+Example: 16/09/2026 -> 2026-09-16.
+harvest_date must ALWAYS be strict YYYY-MM-DD, or "" if it cannot be determined.
+Never guess a date that is not stated or clearly implied.
+
+
 Normalize crop names into simple English names.
 Examples:
 tamatar -> Tomatoes
@@ -86,73 +130,120 @@ Farmer message:
 ${text}
 `;
 
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${apiKey}`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          contents: [
-            {
-              parts: [
-                {
-                  text: prompt,
-                },
-              ],
-            },
-          ],
-          generationConfig: {
-            responseMimeType: "application/json",
-            responseSchema: {
-              type: "OBJECT",
-              properties: {
-                crop: {
-                  type: "STRING",
-                },
-                quantity_kg: {
-                  type: "NUMBER",
-                  nullable: true,
-                },
-                price_per_kg: {
-                  type: "NUMBER",
-                  nullable: true,
-                },
-                location: {
-                  type: "STRING",
-                },
-                harvest_date: {
-                  type: "STRING",
-                },
-                description: {
-                  type: "STRING",
-                },
-              },
-              required: [
-                "crop",
-                "quantity_kg",
-                "price_per_kg",
-                "location",
-                "harvest_date",
-                "description",
-              ],
-            },
+    const callGemini = async () =>
+      await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${apiKey}`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
           },
-        }),
-      }
-    );
+          body: JSON.stringify({
+            contents: [
+              {
+                parts: [
+                  {
+                    text: prompt,
+                  },
+                ],
+              },
+            ],
+            generationConfig: {
+              responseMimeType: "application/json",
+              responseSchema: {
+                type: "OBJECT",
+                properties: {
+                  crop: {
+                    type: "STRING",
+                  },
+                  quantity_kg: {
+                    type: "NUMBER",
+                    nullable: true,
+                  },
+                  price_per_kg: {
+                    type: "NUMBER",
+                    nullable: true,
+                  },
+                  location: {
+                    type: "STRING",
+                  },
+                  harvest_date: {
+                    type: "STRING",
+                  },
+                  description: {
+                    type: "STRING",
+                  },
+                },
+                required: [
+                  "crop",
+                  "quantity_kg",
+                  "price_per_kg",
+                  "location",
+                  "harvest_date",
+                  "description",
+                ],
+              },
+            },
+          }),
+        }
+      );
 
-    if (!response.ok) {
+    let response = await callGemini();
+
+    // Gemini can be briefly overloaded (429/503). Retry a few times before failing.
+    for (let attempt = 0; attempt < 3 && !response.ok; attempt++) {
+      if (response.status !== 429 && response.status < 500) break;
+      const errorText = await response.text();
+      console.error(`Gemini transient error (attempt ${attempt + 1}):`, errorText);
+      await new Promise((r) => setTimeout(r, 800 * (attempt + 1)));
+      response = await callGemini();
+    }
+
+    let outputText: string | undefined;
+
+    if (response.ok) {
+      const geminiResult = await response.json();
+      outputText = geminiResult?.candidates?.[0]?.content?.parts?.[0]?.text;
+    } else {
       const errorText = await response.text();
       console.error("Gemini API error:", errorText);
 
+      // Gemini key quota exhausted / overloaded: fall back to the Lovable AI gateway.
+      const fallbackKey = Deno.env.get("LOVABLE_API_KEY");
+      if (fallbackKey) {
+        const fallback = await fetch(
+          "https://ai.gateway.lovable.dev/v1/chat/completions",
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${fallbackKey}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              model: "google/gemini-2.5-flash",
+              messages: [{ role: "user", content: prompt }],
+              response_format: { type: "json_object" },
+            }),
+          }
+        );
+
+        if (fallback.ok) {
+          const fallbackResult = await fallback.json();
+          outputText = fallbackResult?.choices?.[0]?.message?.content;
+        } else {
+          console.error("Fallback AI error:", await fallback.text());
+        }
+      }
+    }
+
+    if (!outputText) {
       return new Response(
         JSON.stringify({
-          error: "AI could not understand the harvest description.",
+          error:
+            "The AI assistant is busy right now. Please try again in a moment.",
         }),
         {
-          status: 500,
+          status: 503,
           headers: {
             ...corsHeaders,
             "Content-Type": "application/json",
@@ -161,16 +252,11 @@ ${text}
       );
     }
 
-    const geminiResult = await response.json();
+    const parsed = JSON.parse(outputText.replace(/^```json\s*|```$/g, "").trim());
 
-    const outputText =
-      geminiResult?.candidates?.[0]?.content?.parts?.[0]?.text;
 
-    if (!outputText) {
-      throw new Error("Gemini returned no usable response.");
-    }
-
-    const parsed = JSON.parse(outputText);
+    // Harvest date must never break the request: normalize or drop it.
+    parsed.harvest_date = normalizeDate(parsed.harvest_date) ?? extractDate(text) ?? "";
 
     return new Response(JSON.stringify(parsed), {
       status: 200,
@@ -179,6 +265,7 @@ ${text}
         "Content-Type": "application/json",
       },
     });
+
   } catch (error) {
     console.error(error);
 
