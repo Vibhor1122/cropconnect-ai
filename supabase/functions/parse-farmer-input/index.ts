@@ -83,6 +83,17 @@ Deno.serve(async (req) => {
       Deno.env.get("GEMINI_API_KEY") || Deno.env.get("Crop_connect_key");
 
     if (!apiKey) {
+      // TEMP: key unavailable — allow the exact demo-sentence fallback through.
+      const demo = demoFallback(text);
+      if (demo) {
+        return new Response(JSON.stringify(demo), {
+          status: 200,
+          headers: {
+            ...corsHeaders,
+            "Content-Type": "application/json",
+          },
+        });
+      }
       throw new Error("Gemini API key is not configured.");
     }
 
