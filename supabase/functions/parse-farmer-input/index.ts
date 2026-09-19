@@ -199,10 +199,44 @@ ${text}
       response = await callGemini();
     }
 
-    if (!response.ok) {
+    let outputText: string | undefined;
+
+    if (response.ok) {
+      const geminiResult = await response.json();
+      outputText = geminiResult?.candidates?.[0]?.content?.parts?.[0]?.text;
+    } else {
       const errorText = await response.text();
       console.error("Gemini API error:", errorText);
 
+      // Gemini key quota exhausted / overloaded: fall back to the Lovable AI gateway.
+      const fallbackKey = Deno.env.get("LOVABLE_API_KEY");
+      if (fallbackKey) {
+        const fallback = await fetch(
+          "https://ai.gateway.lovable.dev/v1/chat/completions",
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${fallbackKey}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              model: "google/gemini-2.5-flash",
+              messages: [{ role: "user", content: prompt }],
+              response_format: { type: "json_object" },
+            }),
+          }
+        );
+
+        if (fallback.ok) {
+          const fallbackResult = await fallback.json();
+          outputText = fallbackResult?.choices?.[0]?.message?.content;
+        } else {
+          console.error("Fallback AI error:", await fallback.text());
+        }
+      }
+    }
+
+    if (!outputText) {
       return new Response(
         JSON.stringify({
           error:
@@ -218,16 +252,8 @@ ${text}
       );
     }
 
-    const geminiResult = await response.json();
+    const parsed = JSON.parse(outputText.replace(/^```json\s*|```$/g, "").trim());
 
-    const outputText =
-      geminiResult?.candidates?.[0]?.content?.parts?.[0]?.text;
-
-    if (!outputText) {
-      throw new Error("Gemini returned no usable response.");
-    }
-
-    const parsed = JSON.parse(outputText);
 
     // Harvest date must never break the request: normalize or drop it.
     parsed.harvest_date = normalizeDate(parsed.harvest_date) ?? extractDate(text) ?? "";
