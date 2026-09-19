@@ -92,62 +92,74 @@ Farmer message:
 ${text}
 `;
 
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${apiKey}`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          contents: [
-            {
-              parts: [
-                {
-                  text: prompt,
-                },
-              ],
-            },
-          ],
-          generationConfig: {
-            responseMimeType: "application/json",
-            responseSchema: {
-              type: "OBJECT",
-              properties: {
-                crop: {
-                  type: "STRING",
-                },
-                quantity_kg: {
-                  type: "NUMBER",
-                  nullable: true,
-                },
-                price_per_kg: {
-                  type: "NUMBER",
-                  nullable: true,
-                },
-                location: {
-                  type: "STRING",
-                },
-                harvest_date: {
-                  type: "STRING",
-                },
-                description: {
-                  type: "STRING",
-                },
-              },
-              required: [
-                "crop",
-                "quantity_kg",
-                "price_per_kg",
-                "location",
-                "harvest_date",
-                "description",
-              ],
-            },
+    const callGemini = async () =>
+      await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${apiKey}`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
           },
-        }),
-      }
-    );
+          body: JSON.stringify({
+            contents: [
+              {
+                parts: [
+                  {
+                    text: prompt,
+                  },
+                ],
+              },
+            ],
+            generationConfig: {
+              responseMimeType: "application/json",
+              responseSchema: {
+                type: "OBJECT",
+                properties: {
+                  crop: {
+                    type: "STRING",
+                  },
+                  quantity_kg: {
+                    type: "NUMBER",
+                    nullable: true,
+                  },
+                  price_per_kg: {
+                    type: "NUMBER",
+                    nullable: true,
+                  },
+                  location: {
+                    type: "STRING",
+                  },
+                  harvest_date: {
+                    type: "STRING",
+                  },
+                  description: {
+                    type: "STRING",
+                  },
+                },
+                required: [
+                  "crop",
+                  "quantity_kg",
+                  "price_per_kg",
+                  "location",
+                  "harvest_date",
+                  "description",
+                ],
+              },
+            },
+          }),
+        }
+      );
+
+    let response = await callGemini();
+
+    // Gemini can be briefly overloaded (429/503). Retry a few times before failing.
+    for (let attempt = 0; attempt < 3 && !response.ok; attempt++) {
+      if (response.status !== 429 && response.status < 500) break;
+      const errorText = await response.text();
+      console.error(`Gemini transient error (attempt ${attempt + 1}):`, errorText);
+      await new Promise((r) => setTimeout(r, 800 * (attempt + 1)));
+      response = await callGemini();
+    }
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -155,10 +167,11 @@ ${text}
 
       return new Response(
         JSON.stringify({
-          error: "AI could not understand the harvest description.",
+          error:
+            "The AI assistant is busy right now. Please try again in a moment.",
         }),
         {
-          status: 500,
+          status: 503,
           headers: {
             ...corsHeaders,
             "Content-Type": "application/json",
@@ -178,6 +191,9 @@ ${text}
 
     const parsed = JSON.parse(outputText);
 
+    // Harvest date must never break the request: normalize or drop it.
+    parsed.harvest_date = normalizeDate(parsed.harvest_date) ?? extractDate(text) ?? "";
+
     return new Response(JSON.stringify(parsed), {
       status: 200,
       headers: {
@@ -185,6 +201,7 @@ ${text}
         "Content-Type": "application/json",
       },
     });
+
   } catch (error) {
     console.error(error);
 
