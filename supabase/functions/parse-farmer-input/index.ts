@@ -50,6 +50,12 @@ Convert relative dates:
 "today" / "aaj" = ${today}
 "yesterday" / "kal" when referring to past harvest = one day before today.
 
+Dates written as DD/MM/YYYY or DD-MM-YYYY are day-first Indian format.
+Example: 16/09/2026 -> 2026-09-16.
+harvest_date must ALWAYS be strict YYYY-MM-DD, or "" if it cannot be determined.
+Never guess a date that is not stated or clearly implied.
+
+
 Normalize crop names into simple English names.
 Examples:
 tamatar -> Tomatoes
